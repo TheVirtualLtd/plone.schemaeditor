@@ -1,30 +1,29 @@
 # -*- coding: utf-8 -*-
+from plone.schemaeditor.testing import optionflags
+from plone.schemaeditor.testing import ITestLayer
+from plone.schemaeditor.testing import PLONE_SCHEMAEDITOR_FUNCTIONAL_TESTING
+from plone.testing import layered
 from plone.z3cform.interfaces import IFormWrapper
 from plone.z3cform.templates import ZopeTwoFormTemplateFactory
-from Testing import ZopeTestCase as ztc
 from zope.interface import classImplements
 from zope.interface import implementedBy
-from zope.interface import Interface
-from Zope2.App import zcml
 from ZPublisher.BaseRequest import BaseRequest
 
 import doctest
 import os
-import plone.schemaeditor
 import unittest
 
 
-optionflags = (doctest.ELLIPSIS |
-               doctest.NORMALIZE_WHITESPACE |
-               doctest.REPORT_ONLY_FIRST_FAILURE)
+doctests_files = [
+    'choice.rst',
+    'editing.rst',
+    'extending.rst',
+    'field_schemata.rst',
+    'minmax.rst',
+]
 
 
 def setUp(self):
-    from Zope2.App.schema import configure_vocabulary_registry
-    configure_vocabulary_registry()
-
-    zcml.load_config('browser_testing.zcml', plone.schemaeditor.tests)
-
     # add a test layer to the request so we can use special form templates
     # that don't pull in main_template
     classImplements(BaseRequest, ITestLayer)
@@ -35,24 +34,20 @@ def tearDown(self):
 
 
 def test_suite():
-    return unittest.TestSuite([
-
-        ztc.FunctionalDocFileSuite(
-            'field_schemata.rst',
-            'editing.rst',
-            'extending.rst',
-            'choice.rst',
-            'minmax.rst',
-            setUp=setUp,
-            tearDown=tearDown,
-            optionflags=optionflags
-        ),
-
-    ])
-
-
-class ITestLayer(Interface):
-    pass
+    suite = unittest.TestSuite()
+    suite.addTests([
+        layered(
+            doctest.DocFileSuite(
+                'tests/{0}'.format(test_file),
+                package='plone.schemaeditor',
+                optionflags=optionflags,
+                setUp=setUp,
+                tearDown=tearDown,
+            ),
+            layer=PLONE_SCHEMAEDITOR_FUNCTIONAL_TESTING)
+        for test_file in doctests_files]
+    )
+    return suite
 
 
 class RenderWidget(object):
@@ -64,7 +59,9 @@ class RenderWidget(object):
         return self.widget.render()
 
 
+path = lambda p: os.path.join(os.path.dirname(__file__), p)
 layout_factory = ZopeTwoFormTemplateFactory(
-    os.path.join(os.path.dirname(__file__), 'layout.pt'),
-    form=IFormWrapper, request=ITestLayer,
+    path('layout.pt'),
+    form=IFormWrapper,
+    request=ITestLayer,
 )
